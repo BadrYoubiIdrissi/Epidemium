@@ -16,11 +16,14 @@ class Database(pd.DataFrame):
     def __init__(self, filepath):
         super().__init__(pd.read_csv(filepath))
 
-    def sliceToChunks(self, column):
+    def sliceToChunks(self, column, dropCol = True):
         chunks = {}
         values = self[column].unique()
 
         for v in values:
-            chunk = self[self[column == v]]
+            if dropCol:
+                chunk = self[self[column] == v].drop(column, axis=1)
+            else:
+                chunk = self[self[column] == v]
             chunks[v] = chunk
         return chunks

@@ -1,7 +1,6 @@
 # %% Imports
 
 from DataPreparation.Database import Database
-from LSTM.NN import NN
 
 # %% Loading database
 
