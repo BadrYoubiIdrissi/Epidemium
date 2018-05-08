@@ -2,7 +2,6 @@ from keras.models import Sequential
 from keras.layers import Dense, CuDNNLSTM, Dropout, Activation
 from keras.callbacks import TensorBoard
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 
 class LstmNN():
@@ -33,12 +32,12 @@ class LstmNN():
             a = np.concatenate((b,a), axis=1) #On rajoute sur la deuxième dimmension les décalages temporels
         return a
     
-    def rollingWindowPrediction(self, startingWindow, nPred, feature=0):
+    def rollingWindowPrediction(self, startingWindow, nPred):
         rollingWindow = startingWindow
-        pred = []
+        pred = np.zeros((nPred, self.nbFeatures))
         for i in range(nPred):
             p = self.model.predict(self.threeDimInput(rollingWindow))
-            pred.append(p[0,feature])
+            pred[i] = p
             rollingWindow = np.concatenate((rollingWindow, p), axis=0)[1:]
         return self.to2D(np.array(pred))
 
@@ -49,9 +48,9 @@ class LstmNN():
             return a
 
     def scale(self, a):
-        scaler = MinMaxScaler(feature_range=(-1,1))
-        scaled = scaler.fit_transform(a) #On normalise
-        return scaler, scaled
+        self.scaler = MinMaxScaler(feature_range=(-1,1))
+        scaled = self.scaler.fit_transform(a) #On normalise
+        return scaled
 
     def inputOutput(self, a):
         return a[:,:-1,:], a[:,-1,:]
@@ -68,25 +67,4 @@ class LstmNN():
         return self.to2D(y[:m]), self.to2D(y[m:])
 
     def prediction(self, startingWindow,nbPred):
-        return scaler.inverse_transform(nn.rollingWindowPrediction(startingWindow, nbPred))
-
-y = np.sin(np.linspace(0,20*np.pi,1000))
-
-windowSize = 40
-nbFeatures = 1
-neurons = 50, 256
-
-nn = LstmNN(windowSize, nbFeatures, neurons)
-
-train_raw, test_raw = nn.splitTrainTest(y, 0.8)
-scaler, train_scaled = nn.scale(train_raw)
-test_scaled = scaler.transform(test_raw)
-train = nn.toSupervised(train_scaled)
-test = nn.toSupervised(test_scaled)
-
-train_in , train_out = nn.inputOutput(train)
-test_in , test_out = nn.inputOutput(test)
-
-nn.model.fit(x=train_in,y=train_out,epochs=100, shuffle=False)
-
-pred = nn.prediction(test_in[0,:,:], 100)
+        return self.scaler.inverse_transform(self.rollingWindowPrediction(startingWindow, nbPred))
