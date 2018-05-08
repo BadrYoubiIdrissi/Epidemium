@@ -8,16 +8,17 @@ from sklearn.preprocessing import MinMaxScaler
 y = np.sin(np.linspace(0,20*np.pi,1000))
 
 def to2D(a):
-    if a.ndim == 1: #MinMaxScaler n'accepte que les tableaux de dimmension 2
-        a = a.reshape(a.shape[0],1)
+    if a.ndim == 1: 
+        return a.reshape((a.shape[0],1))
+    else:
+        return a
 
 def scale(a):
-    to2D(a)
+    """"""
     scaler = MinMaxScaler(feature_range=(-1,1))
     scaled = scaler.fit_transform(a) #On normalise
     return scaler, scaled
 def toSupervised(a, windowSize):
-    to2D(a)
     orig = a.copy() #On garde une copie car on va modifier a
     a = a[windowSize:] #On enlève les occurences qui n'ont pas assez de valeurs dans le passé
     sh = a.shape
@@ -39,19 +40,20 @@ def threeDimInput(a):
     else:
         return a.reshape((1, a.shape[0], 1))
 
+def rollingWindowPrediction(startingWindow, feature=0):
+    rollingWindow = startingWindow
+    nPred = 1000
+    pred = []
+    for i in range(nPred):
+        p = model.predict(threeDimInput(rollingWindow))
+        pred.append(p[0,feature])
+        rollingWindow = np.concatenate((rollingWindow, p), axis=0)[1:]
+    return to2D(np.array(pred))
+
+
 windowSize = 40
 nbFeatures = 1
 neurons = 50
-train_raw, test_raw = y[:800], y[800:]
-scaler, train_scaled = scale(train_raw)
-test_scaled = scaler.transform(test_raw)
-train = toSupervised(train_scaled, windowSize)
-test = toSupervised(test_scaled, windowSize)
-
-
-# for i in range(train.shape[1]):
-#     plt.plot(test[:,i,:])
-# plt.show()
 
 model = Sequential()
 model.add(CuDNNLSTM(neurons, input_shape = (windowSize, nbFeatures), return_sequences=True))
@@ -62,21 +64,15 @@ model.add(Activation("linear"))
 model.compile(loss="mse", optimizer="adam")
 model.summary()
 
+train_raw, test_raw = to2D(y[:800]), to2D(y[800:])
+scaler, train_scaled = scale(train_raw)
+test_scaled = scaler.transform(test_raw)
+train = toSupervised(train_scaled, windowSize)
+test = toSupervised(test_scaled, windowSize)
+
 train_in , train_out = inputOutput(train)
 test_in , test_out = inputOutput(test)
 
 model.fit(x=train_in,y=train_out,epochs=100, shuffle=False)
 
-rollingWindow = train_in[-1,:,:]
-nPred = 1000
-pred = []
-for i in range(nPred):
-    p = model.predict(threeDimInput(rollingWindow))
-    pred.append(p[0,0])
-    rollingWindow = np.concatenate((rollingWindow, p), axis=0)[1:]
-plt.plot(pred); plt.plot(test_out)
-
-
-
-plt.plot(train_out)
-plt.show()
+pred = scaler.inverse_transform(rollingWindowPrediction(test_in[0,:,:]))
