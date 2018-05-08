@@ -1,44 +1,44 @@
-# %% Imports
+# Imports
 
 from DataPreparation.Database import Database
 from LSTM.NN import LstmNN
 import numpy as np
 import matplotlib.pyplot as plt
 
-# %% Loading database
+# Loading database
 
-RawDB = Database("BDD/Prepared/AllFeaturesRenamed.csv")
+RawDB = Database("BDD/Prepared/AllFeaturesNormalizedFilled.csv")
 
-# %% Normalising Mortality
+# Normalising Mortality
 
-RawDB.Mortality_sum = RawDB.Mortality_sum*1e6 / RawDB["Population, total"]
+chunks = RawDB.sliceToChunks("area")
 
-chunks = RawDB.sliceToChunks("year")
+for area in chunks:
+    chunks[area] = chunks[area].drop(["year"], axis=1).values
 
-# %% LSTM model
+# LSTM model
 
-windowSize = 40
-nbFeatures = 2
-neurons = 100, 256
+windowSize = 5
+nbFeatures = chunks["Australia"].shape[1]
+neurons = 256, 256
 
 nn = LstmNN(windowSize, nbFeatures, neurons)
 
-x = np.linspace(0,20*np.pi,1000)
-y = np.concatenate((nn.to2D(100*np.sin(x)),nn.to2D(100*np.cos(x))), axis=1)
-
-train_raw, test_raw = nn.splitTrainTest(y, 0.8)
-train_scaled = nn.scale(train_raw)
-test_scaled = nn.scaler.transform(test_raw)
-train = nn.toSupervised(train_scaled)
-test = nn.toSupervised(test_scaled)
-
-train_in , train_out = nn.inputOutput(train)
-test_in , test_out = nn.inputOutput(test)
-
-nn.model.fit(x=train_in,y=train_out,epochs=100, shuffle=False, batch_size=50)
+for area in chunks:
+    if len(chunks[area]) > 2*windowSize:
+        train_raw, test_raw = nn.splitTrainTest(chunks[area], 0.8)
+        train_scaled = nn.scale(train_raw)
+        test_scaled = nn.scaler.transform(test_raw)
+        train = nn.toSupervised(train_scaled)
+        test = nn.toSupervised(test_scaled)
+    
+        train_in , train_out = nn.inputOutput(train)
+        test_in , test_out = nn.inputOutput(test)
+    
+        nn.model.fit(x=train_in,y=train_out,epochs=100, shuffle=False)
 
 pred = nn.prediction(test_in[0,:,:], 100)
 
-plt.plot(pred[:,0])
-plt.plot(pred[:,1])
+plt.plot(pred[:,-1])
+plt.plot(test_out[:,-1])
 plt.show()
