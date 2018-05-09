@@ -17,7 +17,6 @@ class LstmNN():
         self.model.add(Dense(nbFeatures))
         self.model.add(Activation("linear"))
         self.model.compile(loss="mse", optimizer="adam")
-        self.model.summary()
 
     def toSupervised(self, a):
         orig = a.copy() #On garde une copie car on va modifier a
@@ -47,10 +46,9 @@ class LstmNN():
         else:
             return a
 
-    def scale(self, a):
+    def fitScaler(self, a):
         self.scaler = MinMaxScaler(feature_range=(-1,1))
-        scaled = self.scaler.fit_transform(a) #On normalise
-        return scaled
+        self.scaler.fit(a)
 
     def inputOutput(self, a):
         return a[:,:-1,:], a[:,-1,:]

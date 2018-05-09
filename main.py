@@ -18,33 +18,41 @@ for area in chunks:
 
 # LSTM model
 
-windowSize = 5
 nbFeatures = chunks["Australia"].shape[1]
-neurons = 256, 512
 
-nn = LstmNN(windowSize, nbFeatures, neurons)
 train_in, train_out = {}, {}
 test_in, test_out = {}, {}
 
-def predictForArea(area):
+
+def predictForArea(area, windowSize, fileName=None, neurons = (50, 50)):
     
-    if len(chunks[area]) > 2*windowSize:
-        train_raw, test_raw = nn.splitTrainTest(chunks[area], 0.8)
-        train_scaled = nn.scale(train_raw)
-        test_scaled = nn.scaler.transform(test_raw)
-        train = nn.toSupervised(train_scaled)
-        test = nn.toSupervised(test_scaled)
+    nn = LstmNN(windowSize, nbFeatures, neurons)
+    data = chunks[area]
+    prop = 0.8
+    if len(data) > 2*windowSize:
+        train_raw, _ = nn.splitTrainTest(data, prop)
+        nn.fitScaler(train_raw)
+        data = nn.scaler.transform(data)
+        supData = nn.toSupervised(data)
+        train, test = nn.splitTrainTest(supData, prop)
     
         train_in[area] , train_out[area] = nn.inputOutput(train)
         test_in[area] , test_out[area] = nn.inputOutput(test)
     
-        nn.model.fit(x=train_in[area],y=train_out[area],epochs=100, shuffle=False)
+        nn.model.fit(x=train_in[area],y=train_out[area],epochs=100, shuffle=False, verbose=0)
     
-        pred = nn.scaler.inverse_transform(nn.model.predict(test_in[area]))
         predtr = nn.scaler.inverse_transform(nn.model.predict(train_in[area]))
-        plt.plot(np.concatenate((predtr[:,-1], pred[:,-1]), axis=0))
-        plt.plot(np.concatenate((nn.scaler.inverse_transform(train_out[area])[:,-1], nn.scaler.inverse_transform(test_out[area])[:,-1]), axis=0))
+        pred = nn.prediction(test_in[area][0,:,:], len(chunks[area])-(windowSize+len(predtr)))
+        plt.plot(range(windowSize,windowSize+len(predtr)), predtr[:,-1], label="Predicted on training set")
+        plt.plot([windowSize+len(predtr)-1, windowSize+len(predtr)], [predtr[-1,-1], pred[0,-1]], "b")
+        plt.plot(range(windowSize+len(predtr),len(chunks[area])), pred[:,-1], label="Predicted on test set")
+        plt.plot(chunks[area][:,-1], label="Real")
+        plt.legend()
+        if fileName:
+            plt.savefig(fileName)
         plt.show()
     else:
         print("Too little data")
-    
+
+for i in range(3,10):
+    predictForArea("Mexico", i, "Figures/Percountry/100epochs/window{}.png".format(i))
