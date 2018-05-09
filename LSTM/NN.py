@@ -1,5 +1,5 @@
 from keras.models import Sequential
-from keras.layers import Dense, CuDNNLSTM, Dropout, Activation
+from keras.layers import Dense, CuDNNLSTM, Dropout, Activation, TimeDistributed
 from keras.callbacks import TensorBoard
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
@@ -12,12 +12,13 @@ class LstmNN():
 
         self.model = Sequential()
         self.model.add(CuDNNLSTM(neurons[0], input_shape = (windowSize, nbFeatures), return_sequences=True))
-        self.model.add(Dropout(0.5))
+        self.model.add(Dropout(dropout))
         self.model.add(CuDNNLSTM(neurons[1]))
-        self.model.add(Dense(nbFeatures))
+        self.model.add(Dense(nbFeatures)) 
         self.model.add(Activation("linear"))
         self.model.compile(loss="mse", optimizer="adam")
-
+        self.model.summary()
+        
     def toSupervised(self, a):
         orig = a.copy() #On garde une copie car on va modifier a
         a = a[self.windowSize:] #On enlève les occurences qui n'ont pas assez de valeurs dans le passé
