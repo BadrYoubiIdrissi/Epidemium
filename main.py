@@ -26,7 +26,8 @@ nn = LstmNN(windowSize, nbFeatures, neurons)
 train_in, train_out = {}, {}
 test_in, test_out = {}, {}
 
-for area in chunks:
+def predictForArea(area):
+    
     if len(chunks[area]) > 2*windowSize:
         train_raw, test_raw = nn.splitTrainTest(chunks[area], 0.8)
         train_scaled = nn.scale(train_raw)
@@ -37,11 +38,13 @@ for area in chunks:
         train_in[area] , train_out[area] = nn.inputOutput(train)
         test_in[area] , test_out[area] = nn.inputOutput(test)
     
-        nn.model.fit(x=train_in[area],y=train_out[area],epochs=1000, shuffle=False)
-
-def predictForArea(area):
-    pred = nn.scaler.inverse_transform(nn.model.predict(test_in[area]))
-    predtr = nn.scaler.inverse_transform(nn.model.predict(train_in[area]))
-    plt.plot(np.concatenate((predtr[:,-1], pred[:,-1]), axis=0))
-    plt.plot(np.concatenate((nn.scaler.inverse_transform(train_out[area])[:,-1], nn.scaler.inverse_transform(test_out[area])[:,-1]), axis=0))
-    plt.show()
+        nn.model.fit(x=train_in[area],y=train_out[area],epochs=100, shuffle=False)
+    
+        pred = nn.scaler.inverse_transform(nn.model.predict(test_in[area]))
+        predtr = nn.scaler.inverse_transform(nn.model.predict(train_in[area]))
+        plt.plot(np.concatenate((predtr[:,-1], pred[:,-1]), axis=0))
+        plt.plot(np.concatenate((nn.scaler.inverse_transform(train_out[area])[:,-1], nn.scaler.inverse_transform(test_out[area])[:,-1]), axis=0))
+        plt.show()
+    else:
+        print("Too little data")
+    
