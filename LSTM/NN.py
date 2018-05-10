@@ -3,6 +3,7 @@ from keras.layers import Dense, CuDNNLSTM, Dropout, Activation, TimeDistributed
 from keras.callbacks import TensorBoard
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from DataPreparation.Utils import *
 
 class LstmNN():
     def __init__(self, windowSize, nbFeatures, neurons = (50, 256), dropout=0.5):
@@ -36,34 +37,15 @@ class LstmNN():
         rollingWindow = startingWindow
         pred = np.zeros((nPred, self.nbFeatures))
         for i in range(nPred):
-            p = self.model.predict(self.threeDimInput(rollingWindow))
+            p = self.model.predict(threeDimInput(rollingWindow))
             pred[i] = p
             rollingWindow = np.concatenate((rollingWindow, p), axis=0)[1:]
-        return self.to2D(np.array(pred))
-
-    def to2D(self, a):
-        if a.ndim == 1: 
-            return a.reshape((a.shape[0],1))
-        else:
-            return a
+        return to2D(np.array(pred))
+    
 
     def fitScaler(self, a):
         self.scaler = MinMaxScaler(feature_range=(-1,1))
         self.scaler.fit(a)
-
-    def inputOutput(self, a):
-        return a[:,:-1,:], a[:,-1,:]
-
-    def threeDimInput(self, a):
-        if a.ndim == 2:
-            return a.reshape((1, a.shape[0], a.shape[1]))
-        else:
-            return a.reshape((1, a.shape[0], 1))
-
-    def splitTrainTest(self, y, propTrain):
-        self.propTrain = propTrain
-        m = int(propTrain*len(y))
-        return self.to2D(y[:m]), self.to2D(y[m:])
 
     def prediction(self, startingWindow,nbPred):
         return self.scaler.inverse_transform(self.rollingWindowPrediction(startingWindow, nbPred))
