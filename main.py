@@ -68,7 +68,7 @@ def plotPrediction(nn, feature, area):
         plt.show()
     
 
-#fileName="Figures/LatinAmerica/100epochs/window{}.png"
+fileName="Figures/Viable/200epochs/{}.png"
 fileName = None
 neurons = (100, 100)
 windowSize = 6
@@ -85,7 +85,7 @@ train_raw = np.zeros((0,nbFeatures))
 scaler = {}
 
 for area in areas:
-    data = chunks[area]
+    data = chunks[area][15:]
     prop = 0.95
     if len(data) > windowSize:
         scaler[area] = MinMaxScaler(feature_range=(-1,1))
@@ -106,8 +106,8 @@ for area in areas:
 nn.model.fit(x=cum_train_in,y=cum_train_out,epochs=200, batch_size=10 ,shuffle=True)
 
 for area in areas:
-    data = chunks[area]
-    if len(data) > windowSize:
+    data = chunks[area][15:]
+    if len(data) > 15+windowSize:
         predtr = scaler[area].inverse_transform(nn.model.predict(train_in[area]))
         #pred = nn.prediction(train_in[area][-1,:,:], len(chunks[area])-(windowSize+len(predtr)))
         pred = scaler[area].inverse_transform(nn.model.predict(test_in[area]))
@@ -118,13 +118,13 @@ for area in areas:
         plt.plot([windowSize+len(predtr)-1, windowSize+len(predtr)], [predtr[-1,feature], pred[0,feature]], "orange")
         plt.plot([windowSize+len(predtr)-1, windowSize+len(predtr)], [predtr[-1,feature], predRoll[0,feature]], "green")
         
-        plt.plot(range(windowSize+len(predtr),len(chunks[area])), pred[:,feature], label="Predicted on test set")
+        plt.plot(range(windowSize+len(predtr),len(data)), pred[:,feature], label="Predicted on test set")
         plt.plot(range(windowSize+len(predtr),windowSize+len(predtr)+len(predRoll)), predRoll[:,feature], label="Predicted on rolling window")
       
-        plt.plot(chunks[area][:,feature], label="Real")
+        plt.plot(data[:,feature], label="Real")
         plt.legend()
         if fileName:
-            plt.savefig(fileName)
+            plt.savefig(fileName.format(area))
         print(area)
         plt.show()
 
