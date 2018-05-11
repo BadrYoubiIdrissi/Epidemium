@@ -8,24 +8,6 @@ from sklearn.preprocessing import MinMaxScaler
 from DataPreparation.Utils import *
 from keras.utils import plot_model
 
-# Loading database
-
-RawDB = Database("BDD/Prepared/AllFeaturesNormalizedFilled.csv")
-
-# Normalising Mortality
-
-chunks = RawDB.sliceToChunks("area")
-
-for area in chunks:
-    chunks[area] = chunks[area].drop(["year"], axis=1).values
-
-# LSTM model
-
-nbFeatures = chunks["Australia"].shape[1]
-
-train_in, train_out = {}, {}
-test_in, test_out = {}, {}
-
 
 def fitForArea(area, windowSize, feature = -1, fileName=None, neurons = (100, 100)):
     
@@ -68,24 +50,45 @@ def plotPrediction(nn, feature, area):
         plt.show()
     
 
-fileName="Figures/Viable/200epochs/{}.png"
+# Loading database
+
+RawDB = Database("BDD/Prepared/AllFeaturesNormalizedFilled.csv")
+
+# Normalising Mortality
+
+chunks = RawDB.sliceToChunks("area")
+
+for area in chunks:
+    chunks[area] = chunks[area].drop(["year"], axis=1).values
+
+# LSTM model
+
+nbFeatures = chunks["Australia"].shape[1]
+
+train_in, train_out = {}, {}
+test_in, test_out = {}, {}
+
+#== Parameters
+
+#fileName="Figures/Viable/200epochs/{}.png"
 fileName = None
 neurons = (100, 100)
 windowSize = 6
 feature = -1
+yearOffset = 0
 
-areas = ["Argentina", "Brazil", "Ecuador", "El Salvador", "Chile", "Colombia", "Costa Rica", "Guyana", "Jamaica", "Mexico", "Guatemala", "Cuba", "Honduras", "Peru", "Nicaragua", "Panama", "Paraguay", "Uruguay", "Dominican Republic", "Haiti", "Puerto Rico"]
-areas = chunks.keys()
-viable = ["Australia","Austria","Belgium","Canada","Cyprus","Czech Republic","Denmark","Estonia","Finland","France","Germany","Greece","Iceland","Ireland","Israel","Italy","Japan","Netherlands","New Zealand","Norway","Portugal","Slovakia","Slovenia","South Korea","Spain","Sweden","Singapore","Switzerland","United Kingdom","United States"]
-
+#areas = ["Argentina", "Brazil", "Ecuador", "El Salvador", "Chile", "Colombia", "Costa Rica", "Guyana", "Jamaica", "Mexico", "Guatemala", "Cuba", "Honduras", "Peru", "Nicaragua", "Panama", "Paraguay", "Uruguay", "Dominican Republic", "Haiti", "Puerto Rico"]
+areas = list(chunks.keys())
+#viable = ["Australia","Austria","Belgium","Canada","Cyprus","Czech Republic","Denmark","Estonia","Finland","France","Germany","Greece","Iceland","Ireland","Israel","Italy","Japan","Netherlands","New Zealand","Norway","Portugal","Slovakia","Slovenia","South Korea","Spain","Sweden","Singapore","Switzerland","United Kingdom","United States"]
+viable = areas[:]
+viable.remove("Mexico")
 nn = LstmNN(windowSize, nbFeatures, neurons)
 cum_train_in = np.zeros((0,windowSize, nbFeatures))
 cum_train_out = np.zeros((0,nbFeatures))
-train_raw = np.zeros((0,nbFeatures))
 scaler = {}
 
 for area in areas:
-    data = chunks[area][15:]
+    data = chunks[area][yearOffset:]
     prop = 0.95
     if len(data) > windowSize:
         scaler[area] = MinMaxScaler(feature_range=(-1,1))
@@ -106,8 +109,8 @@ for area in areas:
 nn.model.fit(x=cum_train_in,y=cum_train_out,epochs=200, batch_size=10 ,shuffle=True)
 
 for area in areas:
-    data = chunks[area][15:]
-    if len(data) > 15+windowSize:
+    data = chunks[area][yearOffset:]
+    if len(data) > windowSize:
         predtr = scaler[area].inverse_transform(nn.model.predict(train_in[area]))
         #pred = nn.prediction(train_in[area][-1,:,:], len(chunks[area])-(windowSize+len(predtr)))
         pred = scaler[area].inverse_transform(nn.model.predict(test_in[area]))
