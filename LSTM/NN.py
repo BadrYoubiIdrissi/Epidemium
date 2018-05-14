@@ -15,9 +15,9 @@ class LstmNN():
         self.model.add(CuDNNLSTM(neurons[0], input_shape = (windowSize, nbFeatures), return_sequences=True))
         self.model.add(Dropout(dropout))
         self.model.add(CuDNNLSTM(neurons[1]))
-        self.model.add(Dense(nbFeatures)) 
+        self.model.add(Dense(1)) 
         self.model.add(Activation("linear"))
-        self.model.compile(loss="mse", optimizer="adam", metrics=['mae', 'mape'])
+        self.model.compile(loss="mape", optimizer="adam", metrics=['mae', 'mape'])
         self.model.summary()
         
     def toSupervised(self, a):
