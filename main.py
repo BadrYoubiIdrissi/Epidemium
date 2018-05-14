@@ -4,44 +4,60 @@ from DataPreparation.Database import Database
 from LSTM.NN import LstmNN
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from DataPreparation.Utils import *
+from keras.utils import plot_model
+
+#== Parameters
+
+fileName = "Figures/Viable/Results/{}.png"
+neurons = (50, 100)
+windowSize = 4
+feature = -1
+yearOffset = 0
 
 # Loading database
 
-RawDB = Database("BDD/Prepared/AllFeaturesNormalizedFilled.csv")
+db = Database("BDD/Prepared/AllFeaturesNormalizedFilled.csv", windowSize)
 
-# Normalising Mortality
+db.sliceToChunks("area")
 
-chunks = RawDB.sliceToChunks("area")
+db.dropCol("year")
 
-for area in chunks:
-    chunks[area] = chunks[area].drop(["year"], axis=1).values
+db.toNumpyArr()
 
 # LSTM model
 
-windowSize = 5
-nbFeatures = chunks["Australia"].shape[1]
-neurons = 256, 512
+nbFeatures = db.nbFeatures
 
-nn = LstmNN(windowSize, nbFeatures, neurons)
-train_in, train_out = {}, {}
-test_in, test_out = {}, {}
+nn = {}
+results = {}
 
-for area in chunks:
-    if len(chunks[area]) > 2*windowSize:
-        train_raw, test_raw = nn.splitTrainTest(chunks[area], 0.8)
-        train_scaled = nn.scale(train_raw)
-        test_scaled = nn.scaler.transform(test_raw)
-        train = nn.toSupervised(train_scaled)
-        test = nn.toSupervised(test_scaled)
+areas = db.getChunksKeys()
+
+testAr = "Mexico"
+
+data = db.chunks[testAr][yearOffset:]
+viable = areas[:]
+viable.remove(testAr)
+nn[testAr] = LstmNN(windowSize, nbFeatures, neurons)
+
+db.buildTrainTestSets(1)
+
+db.buildCumulatedTrainTestSets(viable)
+
+nn[testAr].model.fit(x=db.cum_train_in,y=db.cum_train_out,epochs = 100, verbose=1)
+nn[testAr].model.save("Models/{}.h5".format(testAr))
+
+predtr = db.resultScaler[testAr].inverse_transform(nn[testAr].model.predict(db.train_in[testAr]))
+
+plt.plot(data[:,feature], label="Real")
+plt.plot(range(windowSize,windowSize+len(predtr)), predtr[:,feature], label="Predicted")
+
+plt.legend()
+plt.show()
+# if fileName:
+#     plt.savefig(fileName.format(testAr))
+# print(testAr)
+        
     
-        train_in[area] , train_out[area] = nn.inputOutput(train)
-        test_in[area] , test_out[area] = nn.inputOutput(test)
-    
-        nn.model.fit(x=train_in[area],y=train_out[area],epochs=1000, shuffle=False)
-
-def predictForArea(area):
-    pred = nn.scaler.inverse_transform(nn.model.predict(test_in[area]))
-    predtr = nn.scaler.inverse_transform(nn.model.predict(train_in[area]))
-    plt.plot(np.concatenate((predtr[:,-1], pred[:,-1]), axis=0))
-    plt.plot(np.concatenate((nn.scaler.inverse_transform(train_out[area])[:,-1], nn.scaler.inverse_transform(test_out[area])[:,-1]), axis=0))
-    plt.show()
