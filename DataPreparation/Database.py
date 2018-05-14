@@ -24,7 +24,8 @@ class Database():
         self.train_out = {}
         self.test_in = {}
         self.test_out = {}
-        self.scaler = {}
+        self.fullScaler = {}
+        self.resultScaler = {}
 
     def sliceToChunks(self, column, dropCol = True):
         chunks = {}
@@ -79,10 +80,12 @@ class Database():
         for area in areas:
             data = self.chunks[area]
 
-            self.scaler[area] = MinMaxScaler(feature_range=(-1,1))
-            self.scaler[area].fit(splitTrainTest(data, prop)[0]) #We fit only on training data
-            
-            data = self.scaler[area].transform(data) #We transform the whole of data
+            self.fullScaler[area] = MinMaxScaler(feature_range=(-1,1))
+            self.resultScaler[area] = MinMaxScaler(feature_range=(-1,1))
+            trainingData = splitTrainTest(data, prop)[0]
+            self.fullScaler[area].fit(trainingData) #We fit only on training data
+            self.resultScaler[area].fit(to2D(trainingData[:,self.mainFeature]))
+            data = self.fullScaler[area].transform(data) #We transform the whole of data
             
             supData = self.toSupervised(data)
             train, test = splitTrainTest(supData, prop)

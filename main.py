@@ -49,7 +49,7 @@ db.buildCumulatedTrainTestSets(viable)
 nn[testAr].model.fit(x=db.cum_train_in,y=db.cum_train_out,epochs = 100, verbose=1)
 nn[testAr].model.save("Models/{}.h5".format(testAr))
 
-predtr = db.scaler[testAr].inverse_transform(nn[testAr].model.predict(db.train_in[testAr]))
+predtr = db.resultScaler[testAr].inverse_transform(nn[testAr].model.predict(db.train_in[testAr]))
 
 plt.plot(data[:,feature], label="Real")
 plt.plot(range(windowSize,windowSize+len(predtr)), predtr[:,feature], label="Predicted")
