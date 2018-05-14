@@ -105,5 +105,4 @@ for ni in [20,50,100,250]:
                 print(results[ni,nj,w])
         
 
-#for i in range(3,10):
-    #predictForArea("Mexico", i, "Figures/Percountry/100epochs/window{}.png".format(i))
+"""Result : neurons  = (50,100) and windowSize = 4 is the winner! """

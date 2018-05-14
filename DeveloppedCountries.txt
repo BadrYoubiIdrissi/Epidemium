@@ -1,0 +1,1 @@
+viable = ["Australia","Austria","Belgium","Canada","Cyprus","Czech Republic","Denmark","Estonia","Finland","France","Germany","Greece","Iceland","Ireland","Israel","Italy","Japan","Netherlands","New Zealand","Norway","Portugal","Slovakia","Slovenia","South Korea","Spain","Sweden","Singapore","Switzerland","United Kingdom","United States"]

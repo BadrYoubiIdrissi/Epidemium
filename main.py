@@ -8,139 +8,56 @@ from sklearn.preprocessing import MinMaxScaler
 from DataPreparation.Utils import *
 from keras.utils import plot_model
 
+#== Parameters
 
-def fitForArea(area, windowSize, feature = -1, fileName=None, neurons = (100, 100)):
-    
-    nn = LstmNN(windowSize, nbFeatures, neurons)
-    data = chunks[area]
-    prop = 0.8
-    if len(data) > 2*windowSize:
-        train_raw, _ = splitTrainTest(data, prop)
-        nn.fitScaler(train_raw)
-        data = nn.scaler.transform(data)
-        supData = nn.toSupervised(data)
-        train, test = splitTrainTest(supData, prop)
-    
-        train_in[area] , train_out[area] = inputOutput(train)
-        test_in[area] , test_out[area] = inputOutput(test)
-    
-        nn.model.fit(x=train_in[area],y=train_out[area],epochs=100)
-            
-    else:
-        print("Too little data")
-
-def plotPrediction(nn, feature, area):
-    if len(data) > 2*windowSize:
-        predtr = nn.scaler.inverse_transform(nn.model.predict(train_in[area]))
-        #pred = nn.prediction(train_in[area][-1,:,:], len(chunks[area])-(windowSize+len(predtr)))
-        pred = nn.scaler.inverse_transform(nn.model.predict(test_in[area]))
-        predRoll = nn.prediction(train_in[area][-1,:,:], len(chunks[area])-(windowSize+len(predtr)))
-        
-        plt.plot(range(nn.windowSize,nn.windowSize+len(predtr)), predtr[:,feature], label="Predicted on training set")
-        
-        plt.plot([nn.windowSize+len(predtr)-1, nn.windowSize+len(predtr)], [predtr[-1,feature], pred[0,feature]], "b")
-        
-        plt.plot(range(nn.windowSize+len(predtr),len(chunks[area])), pred[:,feature], label="Predicted on test set")
-        plt.plot(range(nn.windowSize+len(predtr),nn.windowSize+len(predtr)+len(predRoll)), predRoll[:,feature], label="Predicted on rolling window")
-      
-        plt.plot(chunks[area][:,feature], label="Real")
-        plt.legend()
-        if fileName:
-            plt.savefig(fileName)
-        plt.show()
-    
+fileName = "Figures/Viable/Results/{}.png"
+neurons = (50, 100)
+windowSize = 4
+feature = -1
+yearOffset = 0
 
 # Loading database
 
-RawDB = Database("BDD/Prepared/AllFeaturesNormalizedFilled.csv")
+db = Database("BDD/Prepared/AllFeaturesNormalizedFilled.csv", windowSize)
 
-# Normalising Mortality
+db.sliceToChunks("area")
 
-chunks = RawDB.sliceToChunks("area")
+db.dropCol("year")
 
-for area in chunks:
-    chunks[area] = chunks[area].drop(["year"], axis=1).values
+db.toNumpyArr()
 
 # LSTM model
 
-nbFeatures = chunks["Australia"].shape[1]
-
-train_in, train_out = {}, {}
-test_in, test_out = {}, {}
-
-#== Parameters
-
-#fileName="Figures/Viable/200epochs/{}.png"
-fileName = "Figures/Viable/Results/{}.png"
-neurons = (50, 50)
-windowSize = 6
-feature = -1
-yearOffset = 0
+nbFeatures = db.nbFeatures
 
 nn = {}
 results = {}
 
-#areas = ["Argentina", "Brazil", "Ecuador", "El Salvador", "Chile", "Colombia", "Costa Rica", "Guyana", "Jamaica", "Mexico", "Guatemala", "Cuba", "Honduras", "Peru", "Nicaragua", "Panama", "Paraguay", "Uruguay", "Dominican Republic", "Haiti", "Puerto Rico"]
-areas = list(chunks.keys())
-#viable = ["Australia","Austria","Belgium","Canada","Cyprus","Czech Republic","Denmark","Estonia","Finland","France","Germany","Greece","Iceland","Ireland","Israel","Italy","Japan","Netherlands","New Zealand","Norway","Portugal","Slovakia","Slovenia","South Korea","Spain","Sweden","Singapore","Switzerland","United Kingdom","United States"]
-for testAr in areas:
-    data = chunks[testAr][yearOffset:]
-    if len(data) > windowSize:
-        viable = areas[:]
-        viable.remove(testAr)
-        nn[testAr] = LstmNN(windowSize, nbFeatures, neurons)
-        cum_train_in = np.zeros((0,windowSize, nbFeatures))
-        cum_train_out = np.zeros((0,nbFeatures))
-        scaler = {}
+areas = db.getChunksKeys()
 
-        for area in areas:
-            data = chunks[area][yearOffset:]
-            prop = 1
-            if len(data) > windowSize:
-                scaler[area] = MinMaxScaler(feature_range=(-1,1))
-                scaler[area].fit(splitTrainTest(data, prop)[0])
-                
-                data = scaler[area].transform(data)
-                
-                supData = nn[testAr].toSupervised(data)
-                train, test = splitTrainTest(supData, prop)
-            
-                train_in[area] , train_out[area] = inputOutput(train)
-                test_in[area] , test_out[area] = inputOutput(test)
-            
-                if area in viable:
-                    cum_train_in = np.concatenate((cum_train_in, train_in[area]), axis=0)
-                    cum_train_out = np.concatenate((cum_train_out, train_out[area]), axis=0)
+testAr = "Mexico"
 
-        nn[testAr].model.fit(x=cum_train_in,y=cum_train_out,epochs = 100, verbose=1)
-        nn[testAr].model.save("Models/{}.h5".format(testAr))
+data = db.chunks[testAr][yearOffset:]
+viable = areas[:]
+viable.remove(testAr)
+nn[testAr] = LstmNN(windowSize, nbFeatures, neurons)
 
-        data = chunks[testAr][yearOffset:]
+db.buildTrainTestSets(1)
 
-        predtr = scaler[testAr].inverse_transform(nn[testAr].model.predict(train_in[testAr]))
-        #pred = nn[testAr].prediction(train_in[testAr][-1,:,:], len(chunks[testAr])-(windowSize+len(predtr)))
-        #pred = scaler[testAr].inverse_transform(nn[testAr].model.predict(test_in[testAr]))
-        predRoll = scaler[testAr].inverse_transform(nn[testAr].rollingWindowPrediction(train_in[testAr][-1,:,:], 10))
+db.buildCumulatedTrainTestSets(viable)
+
+nn[testAr].model.fit(x=db.cum_train_in,y=db.cum_train_out,epochs = 100, verbose=1)
+nn[testAr].model.save("Models/{}.h5".format(testAr))
+
+predtr = db.scaler[testAr].inverse_transform(nn[testAr].model.predict(db.train_in[testAr]))
+
+plt.plot(data[:,feature], label="Real")
+plt.plot(range(windowSize,windowSize+len(predtr)), predtr[:,feature], label="Predicted")
+
+plt.legend()
+plt.show()
+# if fileName:
+#     plt.savefig(fileName.format(testAr))
+# print(testAr)
         
-        plt.plot(range(windowSize,windowSize+len(predtr)), predtr[:,feature], label="Predicted")
-        
-        #plt.plot([windowSize+len(predtr)-1, windowSize+len(predtr)], [predtr[-1,feature], pred[0,feature]], "orange")
-        plt.plot([windowSize+len(predtr)-1, windowSize+len(predtr)], [predtr[-1,feature], predRoll[0,feature]], "green")
-        
-        #plt.plot(range(windowSize+len(predtr),len(data)), pred[:,feature], label="Predicted on test set")
-        plt.plot(range(windowSize+len(predtr),windowSize+len(predtr)+len(predRoll)), predRoll[:,feature], label="Predicted on rolling window")
-
-        plt.plot(data[:,feature], label="Real")
-        plt.legend()
-        if fileName:
-            plt.savefig(fileName.format(testAr))
-        print(testAr)
-        plt.show()
-
-        print(testAr)
-        results[testAr] = nn[testAr].model.evaluate(train_in[testAr], train_out[testAr],verbose=1)
-        print(results[testAr])
     
-
-#for i in range(3,10):
-    #predictForArea("Mexico", i, "Figures/Percountry/100epochs/window{}.png".format(i))
