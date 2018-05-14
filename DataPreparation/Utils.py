@@ -11,8 +11,11 @@ def to2D(a):
     else:
         return a
 
-def inputOutput(a):
-    return a[:,:-1,:], a[:,-1,:]
+def inputOutput(a, feature = None):
+    if feature:
+        return a[:,:-1,:], to2D(a[:,-1,feature])
+    else:
+        return a[:,:-1,:], a[:,-1,:]
 
 def threeDimInput(a):
     if a.ndim == 2:
