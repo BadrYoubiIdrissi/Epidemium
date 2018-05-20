@@ -1,5 +1,5 @@
 from keras.models import Sequential
-from keras.layers import Dense, CuDNNLSTM, Dropout, Activation
+from keras.layers import Dense, CuDNNLSTM, Dropout, Activation, TimeDistributed
 from keras.callbacks import TensorBoard
 import numpy as np
 from DataPreparation.Utils import *
@@ -9,14 +9,13 @@ class LstmNN():
         self.windowSize = windowSize
         self.neurons = neurons
         self.nbFeatures = nbFeatures
-
         self.model = Sequential()
         self.model.add(CuDNNLSTM(neurons[0], input_shape = (windowSize, nbFeatures), return_sequences=True))
-        self.model.add(Dropout(dropout))
-        self.model.add(CuDNNLSTM(neurons[1]))
-        self.model.add(Dense(1)) 
+        self.model.add(Dropout(0.2))
+        #self.model.add(CuDNNLSTM(neurons[1], return_sequences=True))
+        self.model.add(TimeDistributed(Dense(1))) 
         self.model.add(Activation("linear"))
-        self.model.compile(loss="mape", optimizer="adam", metrics=['mae', 'mape'])
+        self.model.compile(loss="mae", optimizer="adam", metrics=['mse', 'mape'])
         self.model.summary()
     
     def rollingWindowPrediction(self, startingWindow, nPred):
